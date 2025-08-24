@@ -10,7 +10,6 @@
     "storage",
     "notifications"
   ],
-  "host_permissions": ["https://generativelanguage.googleapis.com/*"],
   "background": {
     "service_worker": "background.js",
     "scripts": ["background.js"]
