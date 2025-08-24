@@ -6,7 +6,12 @@ const api = typeof browser !== "undefined" ? browser : chrome;
 const DEFAULT_MODEL = "gemini-2.5-flash";
 
 // Unified notification helper (Chrome callbacks + Firefox promises)
-function notify(title, message, requireInteraction = true) {
+function notify(
+  title,
+  message,
+  requireInteraction = true,
+  notificationId = ""
+) {
   const manifest = api.runtime.getManifest?.() || {};
   const actionIcons =
     manifest.action && manifest.action.default_icon
@@ -30,12 +35,12 @@ function notify(title, message, requireInteraction = true) {
   }
   // Firefox supports promise-based API; Chrome uses callback
   try {
-    const maybePromise = api.notifications.create("", opts);
+    const maybePromise = api.notifications.create(notificationId, opts);
     if (maybePromise && typeof maybePromise.then === "function") {
       return maybePromise;
     }
     return new Promise((resolve, reject) => {
-      api.notifications.create("", opts, (id) => {
+      api.notifications.create(notificationId, opts, (id) => {
         if (api.runtime.lastError) {
           return reject(new Error(api.runtime.lastError.message));
         }
@@ -46,7 +51,7 @@ function notify(title, message, requireInteraction = true) {
     // Fallback to callback-style
     return new Promise((resolve, reject) => {
       try {
-        api.notifications.create("", opts, (id) => {
+        api.notifications.create(notificationId, opts, (id) => {
           if (api.runtime.lastError) {
             return reject(new Error(api.runtime.lastError.message));
           }
@@ -69,7 +74,14 @@ api.runtime.onInstalled.addListener(() => {
 });
 
 function buildPrompt(selectedText) {
-  return `You are a converter that turns arbitrary event text into a valid RFC 5545 iCalendar file.
+  // Get current date and timezone for relative time parsing
+  const now = new Date();
+  const currentDate = now.toISOString().split("T")[0]; // YYYY-MM-DD
+  const currentTime = now.toTimeString().split(" ")[0]; // HH:MM:SS
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone; // e.g., "America/New_York"
+
+  return {
+    system: `You are a converter that turns arbitrary event text into a valid RFC 5545 iCalendar file.
 
 REQUIREMENTS
 
@@ -123,7 +135,7 @@ If timezone cannot be inferred, fall back to UTC with a trailing Z and ensure du
 
 For multi-day all-day events, use DTSTART;VALUE=DATE:YYYYMMDD and DTEND;VALUE=DATE:YYYYMMDD with non-inclusive end.
 
-It’s acceptable to omit VTIMEZONE components (most modern clients resolve TZID automatically). Do not invent custom timezones.
+It's acceptable to omit VTIMEZONE components (most modern clients resolve TZID automatically). Do not invent custom timezones.
 
 RECURRENCE
 
@@ -147,7 +159,7 @@ Example: ATTENDEE;CN=Alex Martin:mailto:alex@example.com
 
 ALARMS (optional but useful)
 
-If the text mentions reminders (e.g., “remind me 30m before”), add one VALARM per event:
+If the text mentions reminders (e.g., "remind me 30m before"), add one VALARM per event:
 '''
 BEGIN:VALARM
 ACTION:DISPLAY
@@ -162,7 +174,7 @@ Escape commas and semicolons in text fields using backslashes (\, \;).
 
 Normalize line breaks in DESCRIPTION as \\n.
 
-Keep SUMMARY short and informative (e.g., “Team Sync”, “JetBlue 1908 — Paris (CDG) → New York (JFK)”, “Hotel Check-in — Park Hyatt Tokyo”).
+Keep SUMMARY short and informative (e.g., "Team Sync", "JetBlue 1908 — Paris (CDG) → New York (JFK)", "Hotel Check-in — Park Hyatt Tokyo").
 
 Generate deterministic but arbitrary UID like:
 uid-{yyyyMMddHHmm}-{slugified-summary}-{random-ish}@event2ics.local
@@ -191,13 +203,20 @@ Return ONLY the iCalendar text.
 
 Use CRLF line endings (\r\n).
 
-Example property ordering per VEVENT: UID, DTSTAMP, DTSTART, DTEND/DURATION, SUMMARY, LOCATION, DESCRIPTION, optional fields, STATUS, TRANSP, alarms.
+Example property ordering per VEVENT: UID, DTSTAMP, DTSTART, DTEND/DURATION, SUMMARY, LOCATION, DESCRIPTION, optional fields, STATUS, TRANSP, alarms.`,
+    user: `CURRENT CONTEXT
+- Current date: ${currentDate}
+- Current time: ${currentTime}
+- User timezone: ${timezone}
+
+Use this context to interpret relative times like "dinner at 9" (today at 9 PM), "meeting tomorrow at 2" (tomorrow at 2 PM), "next Monday", etc.
 
 Now convert this event text:
 <<<EVENTS
 ${selectedText}
 EVENTS
->>>`;
+>>>`,
+  };
 }
 
 async function callGemini(selectedText, apiKey, modelName) {
@@ -205,8 +224,12 @@ async function callGemini(selectedText, apiKey, modelName) {
     modelName || DEFAULT_MODEL
   )}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
+  const prompt = buildPrompt(selectedText);
   const body = {
-    contents: [{ role: "user", parts: [{ text: buildPrompt(selectedText) }] }],
+    systemInstruction: {
+      parts: [{ text: prompt.system }],
+    },
+    contents: [{ role: "user", parts: [{ text: prompt.user }] }],
     generationConfig: { temperature: 0.2 },
   };
 
@@ -256,7 +279,11 @@ async function safeDownloadIcs(raw) {
     const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
     const objectUrl = URL.createObjectURL(blob);
     try {
-      await api.downloads.download({ url: objectUrl, filename });
+      const downloadId = await api.downloads.download({
+        url: objectUrl,
+        filename,
+      });
+      return downloadId;
     } finally {
       // Revoke shortly after to allow download to start
       setTimeout(() => {
@@ -269,7 +296,8 @@ async function safeDownloadIcs(raw) {
     // Chromium MV3 service worker lacks createObjectURL; use data URL
     const dataUrl =
       "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
-    await api.downloads.download({ url: dataUrl, filename });
+    const downloadId = await api.downloads.download({ url: dataUrl, filename });
+    return downloadId;
   }
 }
 
@@ -298,6 +326,11 @@ api.contextMenus.onClicked.addListener(async (info) => {
       MODEL_NAME || DEFAULT_MODEL
     );
     await safeDownloadIcs(raw);
+    notify(
+      "Calendar event created",
+      "Open the .ics file to add to your calendar",
+      false
+    );
   } catch (e) {
     console.error(e);
     notify("Failed to create .ics", e?.message || "Unknown error");
@@ -350,11 +383,16 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
           MODEL_NAME || DEFAULT_MODEL
         );
         await safeDownloadIcs(raw);
+        notify(
+          "Calendar event created",
+          "Open the .ics file to add to your calendar",
+          false
+        );
         sendResponse({ ok: true });
       } catch (e) {
         console.error(e);
         try {
-          await notify("Failed to create .ics", e?.message || "Unknown error");
+          notify("Failed to create .ics", e?.message || "Unknown error");
         } catch (e2) {}
         sendResponse({ ok: false, error: e?.message || "Unknown error" });
       }
