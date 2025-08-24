@@ -6,12 +6,22 @@ const api = typeof browser !== "undefined" ? browser : chrome;
 const DEFAULT_MODEL = "gemini-2.5-flash";
 
 // Unified notification helper (Chrome callbacks + Firefox promises)
-function notify(
+async function notify(
   title,
   message,
   requireInteraction = true,
   notificationId = ""
 ) {
+  // Check if notifications are enabled (except for error notifications)
+  if (title !== "Failed to create .ics" && title !== "Missing Gemini API key") {
+    const { SHOW_NOTIFICATIONS } = await api.storage.sync.get([
+      "SHOW_NOTIFICATIONS",
+    ]);
+    if (SHOW_NOTIFICATIONS === false) {
+      return Promise.resolve(); // Skip notification
+    }
+  }
+
   const manifest = api.runtime.getManifest?.() || {};
   const actionIcons =
     manifest.action && manifest.action.default_icon
@@ -311,7 +321,7 @@ api.contextMenus.onClicked.addListener(async (info) => {
     "MODEL_NAME",
   ]);
   if (!GEMINI_API_KEY) {
-    notify(
+    await notify(
       "Missing Gemini API key",
       "Open the extension options to add your Gemini API key."
     );
@@ -326,14 +336,14 @@ api.contextMenus.onClicked.addListener(async (info) => {
       MODEL_NAME || DEFAULT_MODEL
     );
     await safeDownloadIcs(raw);
-    notify(
+    await notify(
       "Calendar event created",
       "Open the .ics file to add to your calendar",
       false
     );
   } catch (e) {
     console.error(e);
-    notify("Failed to create .ics", e?.message || "Unknown error");
+    await notify("Failed to create .ics", e?.message || "Unknown error");
   }
 });
 
@@ -343,7 +353,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "test-notification") {
     (async () => {
       try {
-        await notify(
+        await await notify(
           "Test Notification",
           "This is a test from options page.",
           true
@@ -368,7 +378,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       ]);
       if (!GEMINI_API_KEY) {
         try {
-          await notify(
+          await await notify(
             "Missing Gemini API key",
             "Open the extension options to add your Gemini API key."
           );
@@ -383,7 +393,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
           MODEL_NAME || DEFAULT_MODEL
         );
         await safeDownloadIcs(raw);
-        notify(
+        await notify(
           "Calendar event created",
           "Open the .ics file to add to your calendar",
           false
@@ -392,7 +402,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } catch (e) {
         console.error(e);
         try {
-          notify("Failed to create .ics", e?.message || "Unknown error");
+          await notify("Failed to create .ics", e?.message || "Unknown error");
         } catch (e2) {}
         sendResponse({ ok: false, error: e?.message || "Unknown error" });
       }

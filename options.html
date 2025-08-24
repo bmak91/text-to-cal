@@ -42,6 +42,7 @@
       .btn { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); cursor: pointer; font-size: 14px; }
       .btn-primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
       .btn:disabled { opacity: 0.6; cursor: default; }
+      .hidden { display: none; }
       #status { margin-top: 10px; min-height: 18px; }
       #status.status-success { color: #059669; }
       #status.status-error { color: #dc2626; }
@@ -65,10 +66,16 @@
           <input id="model" type="text" placeholder="gemini-2.5-flash" />
           <div class="muted">Defaults to <code>gemini-2.5-flash</code>. Change if needed.</div>
         </div>
+        <div class="row">
+          <label>
+            <input id="show-notifications" type="checkbox" />
+            Show notifications
+          </label>
+        </div>
         <div class="actions">
           <button id="save" class="btn btn-primary">Save</button>
           <button id="test" class="btn">Test Call</button>
-          <button id="test-notif" class="btn">Test Notification</button>
+          <button id="test-notif" class="btn hidden">Test Notification</button>
         </div>
         <div id="status" class="muted"></div>
       </div>

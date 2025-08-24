@@ -7,6 +7,8 @@ const statusEl = document.getElementById("status");
 const saveBtn = document.getElementById("save");
 const testBtn = document.getElementById("test");
 const testNotifBtn = document.getElementById("test-notif");
+const createCacheBtn = document.getElementById("create-cache");
+const showNotificationsCheckbox = document.getElementById("show-notifications");
 
 function setStatus(kind, message) {
   statusEl.classList.remove("status-success", "status-error");
@@ -15,21 +17,47 @@ function setStatus(kind, message) {
 }
 
 async function load() {
-  const { GEMINI_API_KEY, MODEL_NAME } = await api.storage.sync.get([
-    "GEMINI_API_KEY",
-    "MODEL_NAME",
-  ]);
+  const { GEMINI_API_KEY, MODEL_NAME, SHOW_NOTIFICATIONS } =
+    await api.storage.sync.get([
+      "GEMINI_API_KEY",
+      "MODEL_NAME",
+      "SHOW_NOTIFICATIONS",
+    ]);
   if (GEMINI_API_KEY) keyInput.value = GEMINI_API_KEY;
   modelInput.value = MODEL_NAME || "gemini-2.5-flash";
+  showNotificationsCheckbox.checked = SHOW_NOTIFICATIONS !== false; // Default to true
+  testNotifBtn.classList.toggle("hidden", !SHOW_NOTIFICATIONS);
 }
 load();
 
 document.getElementById("save").addEventListener("click", async () => {
   const GEMINI_API_KEY = keyInput.value.trim();
   const MODEL_NAME = modelInput.value.trim() || "gemini-2.5-flash";
-  await api.storage.sync.set({ GEMINI_API_KEY, MODEL_NAME });
+  const SHOW_NOTIFICATIONS = showNotificationsCheckbox.checked;
+  await api.storage.sync.set({
+    GEMINI_API_KEY,
+    MODEL_NAME,
+    SHOW_NOTIFICATIONS,
+  });
   setStatus("status-success", "Saved.");
-  setTimeout(() => setStatus(null, ""), 1500);
+
+  testNotifBtn.classList.toggle("hidden", !SHOW_NOTIFICATIONS);
+
+  // Recreate cache with new settings
+  if (GEMINI_API_KEY) {
+    try {
+      const res = await api.runtime.sendMessage({ type: "create-cache" });
+      if (res && res.ok) {
+        setStatus("status-success", "Saved and cache updated.");
+      } else {
+        setStatus("status-success", "Saved (cache update failed).");
+      }
+    } catch (e) {
+      setStatus("status-success", "Saved (cache update failed).");
+    }
+  }
+
+  setTimeout(() => setStatus(null, ""), 2000);
 });
 
 document.getElementById("test").addEventListener("click", async () => {
