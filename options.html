@@ -42,6 +42,8 @@
       .btn { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); cursor: pointer; font-size: 14px; }
       .btn-primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
       .btn:disabled { opacity: 0.6; cursor: default; }
+      .link { color: var(--primary); text-decoration: none; }
+      .link:hover { text-decoration: underline; }
       .hidden { display: none; }
       #status { margin-top: 10px; min-height: 18px; }
       #status.status-success { color: #059669; }
@@ -55,7 +57,7 @@
           <img src="icons/calendar_48.png" alt="" />
           <h1>Text to Calendar - Options</h1>
         </div>
-        <div class="hint">Paste your <strong>Gemini API key</strong> from <a href="https://aistudio.google.com" target="_blank">Google AI Studio</a>.</div>
+        <div class="hint">Paste your <strong>Gemini API key</strong> from <a class="link" href="https://aistudio.google.com" target="_blank">Google AI Studio</a>.</div>
         <div class="row">
           <label for="key">Gemini API Key</label>
           <input id="key" type="password" placeholder="AIza..." autocomplete="off" />
