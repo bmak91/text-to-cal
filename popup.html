@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Text to Calendar</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #111827;
+        --muted: #6b7280;
+        --surface: #f9fafb;
+        --border: #e5e7eb;
+        --primary: #2563eb;
+        --primary-fg: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b0f19;
+          --fg: #e5e7eb;
+          --muted: #9ca3af;
+          --surface: #0a0e16;
+          --border: #1f2937;
+          --primary: #3b82f6;
+          --primary-fg: #0b0f19;
+        }
+      }
+      * { box-sizing: border-box; }
+      body { font-family: -apple-system, system-ui, sans-serif; margin: 0; width: 380px; background: var(--surface); color: var(--fg); }
+      .wrap { padding: 16px; }
+      /* .card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); } */
+      .header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+      .header img { width: 20px; height: 20px; }
+      .header h1 { font-size: 14px; margin: 0; font-weight: 600; }
+      .hint { color: var(--muted); font-size: 12px; margin: 6px 0 10px; }
+      textarea { width: 100%; min-height: 120px; max-height: 280px; resize: none; border: 1px solid var(--border); background: transparent; color: var(--fg); border-radius: 10px; padding: 10px; font-size: 13px; line-height: 1.4; }
+      textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent); }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+      .btn { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); cursor: pointer; font-size: 13px; }
+      .btn-primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+      .btn-secondary { background: transparent; }
+      .btn:disabled { opacity: 0.6; cursor: default; }
+      .muted { color: var(--muted); font-size: 12px; }
+      #status { margin-top: 8px; min-height: 16px; }
+      #status.status-success { color: #059669; }
+      #status.status-error { color: #dc2626; }
+      .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 11px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1px 4px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <!-- <div class="card"> -->
+        <div class="header">
+          <img src="icons/calendar_48.png" alt="" />
+          <h1>Text to Calendar</h1>
+        </div>
+        <div class="hint">Paste event/itinerary text, then Generate to download .ics.</div>
+        <textarea id="text" placeholder="Paste event language or itinerary here..."></textarea>
+        <div class="row">
+          <div>
+            <button id="generate" class="btn btn-primary">Generate .ics</button>
+            <button id="options" class="btn btn-secondary">Options</button>
+          </div>
+          <div class="muted"><span class="kbd">⌘</span>/<span class="kbd">Ctrl</span> + <span class="kbd">Enter</span></div>
+        </div>
+        <div id="status" class="muted"></div>
+      </div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+  </html>
+
+
